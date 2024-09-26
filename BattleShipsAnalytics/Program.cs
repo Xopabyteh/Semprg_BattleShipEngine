@@ -1,59 +1,67 @@
-﻿using BattleShipEngine;
+using BattleShipEngine;
+using BattleShipsAnalytics.Tournaments;
+using BattleShipExternalStrategies;
 using BattleShipStrategies.Default;
+using BattleShipStrategies.MartinF;
+using BattleShipStrategies.MartinF.Unethical;
+using BattleShipStrategies.Honza;
 using BattleShipStrategies.Slavek;
+using BattleShipStrategies.Robert;
+using BattleShipStrategies.Max;
+using BattleShipStrategies.Tobias;
+using BattleShipStrategies.Slavek.AI;
+using BattleShipStrategies.Klara;
+using BattleShipStrategies.Kuba;
 
+List<IBoardCreationStrategy> strategies = new();
+strategies.Add(new DefaultBoardCreationStrategy());
+strategies.Add(new AIBoard(PreparedMap.MapSmaDef_MarKubMax()));
 
 var participants = new List<Participant>()
 {
-    new("Default", new DefaultBoardCreationStrategy(), new DefaultGameStrategy()),
-    new("SmartRandom", new DefaultBoardCreationStrategy(), new SmartRandomStrategy()),
+	new("MartinF", new MartinBoardCreationStrategy(), new MartinStrategy()),
+    //new("Legit100%NoCap", new SmartRandomBoardCreationStrategy(), new MartinParasiticStrategy()),
+    new("SmartRandom", new SmartRandomBoardCreationStrategy(), new SmartRandomStrategy()),
+    new("Slavek", new AIBoard(PreparedMap.MapSmaDef_MarKubMax()), new DeathCrossStrategy(strategies)),
+    new("Slavek-AI", new AIBoard(PreparedMap.MapSmaDef_MarKubMax()), new AIGameStrategy()),
+    new("Slavek-LAI", new AIBoard(PreparedMap.MapSmaDef_MarKubMax()), new LearningAIGameStrategy(100)),
+	new("Kuba" , new KubaBoardCreationStrategy () , new KubaStrategie()),
+    //new("External", new ExternalBoardCreationStrategy(65431), new ExternalGameStrategy(65432)),
+    new("Honza", new ChatGptBoardCreationStrategy(), new HonzaGameStrategy()),
+    new("Robert+S_ChatGpt1", new ChatGptBoardCreationStrategy(), new ChatGpt1GameStrategy()),
+	new("Robert+S_ChatGpt2", new ChatGptBoardCreationStrategy(), new ChatGpt2GameStrategy()),
+	new("Robert+S_GHC+CGPT", new ChatGptBoardCreationStrategy(), new GitHubCopilotGameStrategy()),
+    new("Tobias", new TobiasBoardCreationStrategy(), new TobiasGameStrategy()),
+	new("Klara", new DefaultBoardCreationStrategy(), new KlaraStrategy()),
+	new("Max", new Board_Creation_Max(), new Strategy_Max()),
+
     //new("Interactive", new InteractiveBoardCreationStrategy(), new InteractiveGameStrategy())
 };
 
-//Setup scores
-var competitorsScores = new Dictionary<Participant, int>(); // Key: Participant, Value: How many moves it took to sink all boats
-foreach (var participant in participants)
-    competitorsScores.Add(participant, 0);
-
-//Play games
 var settings = GameSetting.Default;
 
-foreach (var participant in participants)
+//var tournament = new SingleShotTournament(participants);
+var tournament = new MultiGameTournament(participants, 100);
+//var tournament = new MultiThreadedTournament(participants, 1000); //Might be faster, but not sure (lol)
+
+tournament.PlayAndPrint(settings);
+
+// Check for external strategies and say them to close sockets.
+// Say LearningAIGameStrategy to save new knowledge.
+foreach (Participant participant in participants)
 {
-    Game game;
-    try
-    {
-        game = new Game(participant.BoardCreationStrategy, settings);
-    }
-    catch (Exception e)
-    {
-        Console.WriteLine(e);
-        Console.WriteLine($"The {participant.Name}'s board was not valid. Skipping.");
-        continue;
-    }
-    
-    Console.WriteLine($"The Board of {participant.Name} was cleared by ");
+	if (participant.GameStrategy is ExternalGameStrategy)
+		participant.GameStrategy.Start(new GameSetting(
+			0, 0, new int[] { }));
+/*
+	else if (participant.GameStrategy is LearningAIGameStrategy)
+		participant.GameStrategy.Start(new GameSetting(
+			0, 0, new int[] { }));
+*/
 
-    //Calculate how others did against this board
-    foreach (var competitor in participants)
-    {
-        if (competitor == participant)
-            continue; //The player shouldn't play against himself
+	if (participant.BoardCreationStrategy is ExternalBoardCreationStrategy)
+		participant.BoardCreationStrategy.GetBoatPositions(
+			new GameSetting(0, 0, new int[] { }));
 
-        //Simulate game on this board
-        var ammOfMoves = game.SimulateGame(competitor.GameStrategy);
-
-        competitorsScores[competitor] += ammOfMoves;
-        
-        //Some logging for this board
-        Console.WriteLine($"\t-{competitor.Name} in {ammOfMoves} moves");
-    }
-}
-
-//Final results
-Console.WriteLine("Total amount of moves needed to solve all the opponents' boards:");
-foreach (var participant in
-         competitorsScores.OrderBy(x => x.Value))
-{
-    Console.WriteLine($"\t-{participant.Key.Name}: {participant.Value} moves");
+	// Start empty = Exit
 }

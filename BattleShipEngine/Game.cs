@@ -1,4 +1,6 @@
-﻿namespace BattleShipEngine;
+﻿using System.Runtime.CompilerServices;
+
+namespace BattleShipEngine;
 
 /// <summary>
 /// The game of battleships
@@ -17,6 +19,33 @@ public sealed class Game
         var boatPositions = boardCreationStrategy.GetBoatPositions(setting);
         this._boardTemplate = GenerateBoardFromBoats(boatPositions, setting);
         this._setting = setting;
+
+        //Draw the board for debug purposes
+        //DrawBoard();
+
+        void DrawBoard()
+        {
+            for (int y = 0; y < setting.Height; y++)
+            {
+                for (int x = 0; x < setting.Width; x++)
+                {
+                    Console.Write(_boardTemplate[x, y] switch
+                    {
+                        BoardTile.Water => ". ",
+                        BoardTile.Boat => "B ",
+                        _ => throw new ArgumentOutOfRangeException()
+                    });
+                }
+
+                Console.WriteLine();
+            }
+        }
+    }
+
+    public Game(Int2[] boatPositions, GameSetting setting)
+    {
+        _boardTemplate = GenerateBoardFromBoats(boatPositions, setting);
+        _setting = setting;
     }
 
     /// <summary>
@@ -35,7 +64,30 @@ public sealed class Game
         {
             ammOfMoves++;
 
-            var move = strategy.GetMove();
+            if (ammOfMoves >= _setting.Width * _setting.Height * 5)
+                return _setting.Width * _setting.Height * 5;
+
+            Int2 move;
+            try
+            {
+                move = strategy.GetMove();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception occured during the move. Strategy gets maximum moves.");
+                return _setting.Width * _setting.Height * 5;
+            }
+            if (0 > move.X || move.X >= _setting.Width)
+            {
+                Console.WriteLine("Invalid move. Strategy gets maximum moves.");
+                return _setting.Width * _setting.Height * 5;
+            }
+            if (0 > move.Y || move.Y >= _setting.Height)
+            {
+                Console.WriteLine("Invalid move. Strategy gets maximum moves.");
+                return _setting.Width * _setting.Height * 5;
+            }
+
             if (board[move.X, move.Y] == BoardTile.Boat)
             {
                 //Player hit a boat
